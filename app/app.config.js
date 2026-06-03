@@ -5,6 +5,10 @@
 export default ({ config }) => ({
   ...config,
   extra: {
+    ...config.extra,
     apiUrl: process.env.EXPO_PUBLIC_API_URL,
+    eas: {
+      projectId: '7ab6b01a-8803-4365-a807-1b99f2396b2b',
+    },
   },
 });

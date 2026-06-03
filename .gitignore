@@ -18,17 +18,12 @@ expo-env.d.ts
 .metro-health-check*
 
 # ── Android ───────────────────────────────────────────────────────────────────
-android/.gradle/
-android/app/build/
-android/build/
-*.keystore
-!android/app/debug.keystore
+# Managed by EAS Prebuild — do not commit
+android/
 
 # ── iOS ───────────────────────────────────────────────────────────────────────
-ios/Pods/
-ios/build/
-ios/DerivedData/
-*.xcworkspace/xcuserdata/
+# Managed by EAS Prebuild — do not commit
+ios/
 
 # ── Backend ───────────────────────────────────────────────────────────────────
 server/.env
