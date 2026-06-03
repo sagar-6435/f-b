@@ -3,6 +3,9 @@ import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { api } from '../api/client';
 
+// FCM sender ID from google-services.json → project_number
+const FCM_SENDER_ID = '36557887262';
+
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -23,6 +26,7 @@ export async function configureNotificationChannel() {
 }
 
 export async function registerForPushNotificationsAsync() {
+  // Skip in Expo Go — FCM tokens only work in standalone builds
   if (Constants.executionEnvironment === 'storeClient') {
     return null;
   }
@@ -36,27 +40,35 @@ export async function registerForPushNotificationsAsync() {
   }
 
   if (finalStatus !== 'granted') {
-    throw new Error('Notification permission not granted');
+    console.warn('Notification permission not granted');
+    return null;
   }
 
-  const token = await Notifications.getDevicePushTokenAsync();
+  // Pass FCM sender ID so expo-notifications gets a proper FCM token in standalone APKs
+  const token = await Notifications.getDevicePushTokenAsync({
+    projectId: FCM_SENDER_ID,
+  });
   return token.data;
 }
 
 export async function syncDevicePushToken(userId) {
   if (!userId) return null;
 
-  await configureNotificationChannel();
-  const deviceToken = await registerForPushNotificationsAsync();
+  try {
+    await configureNotificationChannel();
+    const deviceToken = await registerForPushNotificationsAsync();
+    if (!deviceToken) return null;
 
-  if (!deviceToken) return null;
+    // Persist FCM token to MongoDB via the API
+    await api.put(`/users/${userId}`, {
+      fcmToken:             deviceToken,
+      notificationPlatform: Platform.OS,
+      notificationUpdatedAt: new Date().toISOString(),
+    });
 
-  // Persist FCM token to MongoDB via the API
-  await api.put(`/users/${userId}`, {
-    fcmToken: deviceToken,
-    notificationPlatform: Platform.OS,
-    notificationUpdatedAt: new Date().toISOString(),
-  });
-
-  return deviceToken;
+    return deviceToken;
+  } catch (err) {
+    console.warn('syncDevicePushToken failed:', err.message);
+    return null;
+  }
 }
