@@ -16,7 +16,7 @@ export default function SplashScreen({ navigation }) {
     if (!isReady) return undefined;
     const timer = setTimeout(() => {
       navigation.replace(isAuthenticated ? 'MainTabs' : 'Login');
-    }, 2000);
+    }, 1000);
     return () => clearTimeout(timer);
   }, [isReady, isAuthenticated, navigation]);
 

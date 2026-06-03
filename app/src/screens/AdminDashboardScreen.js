@@ -465,6 +465,7 @@ const TABS = ['Overview', 'Delivery', 'Suppliers', 'Stock', 'Notify'];
 export default function AdminDashboardScreen({ navigation }) {
   const [activeTab,    setActiveTab]    = useState('Overview');
   const [refreshing,   setRefreshing]   = useState(false);
+  const [menuOpen,     setMenuOpen]     = useState(false);
 
   // Overview
   const [allOrders,    setAllOrders]    = useState([]);
@@ -619,9 +620,14 @@ export default function AdminDashboardScreen({ navigation }) {
 
       {/* ── Header ── */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.kicker}>Admin</Text>
-          <Text style={styles.title}>Dashboard</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <TouchableOpacity style={styles.menuToggle} onPress={() => setMenuOpen((v) => !v)}>
+            <Ionicons name={menuOpen ? 'close' : 'menu'} size={22} color={colors.primary} />
+          </TouchableOpacity>
+          <View>
+            <Text style={styles.kicker}>Admin</Text>
+            <Text style={styles.title}>Dashboard</Text>
+          </View>
         </View>
         <TouchableOpacity style={styles.switchBtn} onPress={() => navigation.navigate('DashboardHub')}>
           <Ionicons name="grid-outline" size={16} color={colors.primary} style={{ marginRight: 4 }} />
@@ -629,32 +635,49 @@ export default function AdminDashboardScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      {/* ── Tab bar ── */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.tabBar}
-        contentContainerStyle={{ paddingHorizontal: 2 }}
-      >
-        {TABS.map((tab) => (
-          <TouchableOpacity
-            key={tab}
-            style={[styles.tab, activeTab === tab && styles.tabActive]}
-            onPress={() => setActiveTab(tab)}
-          >
-            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      {/* ── Body: left sidebar + right content ── */}
+      <View style={styles.body}>
 
-      {/* ── Tab content ── */}
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 32 }}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
-        }
-      >
+        {/* ── Left sidebar menu (hidden by default) ── */}
+        {menuOpen && (
+          <View style={styles.sidebar}>
+            {TABS.map((tab) => {
+              const ICONS = {
+                Overview:  'grid-outline',
+                Delivery:  'bicycle-outline',
+                Suppliers: 'storefront-outline',
+                Stock:     'cube-outline',
+                Notify:    'notifications-outline',
+              };
+              const active = activeTab === tab;
+              return (
+                <TouchableOpacity
+                  key={tab}
+                  style={[styles.menuItem, active && styles.menuItemActive]}
+                  onPress={() => { setActiveTab(tab); setMenuOpen(false); }}
+                >
+                  <Ionicons
+                    name={ICONS[tab] ?? 'ellipse-outline'}
+                    size={20}
+                    color={active ? colors.primary : '#AAA'}
+                  />
+                  <Text style={[styles.menuLabel, active && styles.menuLabelActive]}>{tab}</Text>
+                  {active && <View style={styles.menuIndicator} />}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
+        {/* ── Right content ── */}
+        <ScrollView
+          style={styles.content}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 32 }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
+          }
+        >
         {/* ════ OVERVIEW ════ */}
         {activeTab === 'Overview' && (
           statsLoading ? <ActivityIndicator color={colors.primary} style={styles.loader} /> : (
@@ -941,6 +964,7 @@ export default function AdminDashboardScreen({ navigation }) {
           </>
         )}
       </ScrollView>
+      </View>
     </ScreenContainer>
   );
 }
@@ -956,15 +980,23 @@ const styles = StyleSheet.create({
   title:        { fontSize: 26, fontWeight: '800', color: '#1A1A1A', marginTop: 2 },
   switchBtn:    { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF1E8', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
   switchBtnText:{ color: colors.primary, fontWeight: '700', fontSize: 13 },
+  menuToggle:   { width: 38, height: 38, borderRadius: 19, backgroundColor: '#FFF1E8', alignItems: 'center', justifyContent: 'center' },
 
-  // Tabs
-  tabBar:       { flexGrow: 0, marginBottom: 14 },
-  tab:          { paddingHorizontal: 18, paddingVertical: 8, borderRadius: 20, marginRight: 8, backgroundColor: '#fff' },
-  tabActive:    { backgroundColor: colors.primary },
-  tabText:      { fontWeight: '700', color: '#888', fontSize: 13 },
-  tabTextActive:{ color: '#fff' },
+  // Body layout
+  body:         { flex: 1, flexDirection: 'row' },
 
-  loader: { marginTop: 40 },
+  // Left sidebar
+  sidebar:      { width: 80, paddingTop: 4, paddingRight: 8 },
+  menuItem:     { alignItems: 'center', paddingVertical: 14, paddingHorizontal: 4, borderRadius: 16, marginBottom: 4, position: 'relative' },
+  menuItemActive: { backgroundColor: '#FFF1E8' },
+  menuLabel:    { fontSize: 10, fontWeight: '600', color: '#AAA', marginTop: 4, textAlign: 'center' },
+  menuLabelActive: { color: colors.primary, fontWeight: '800' },
+  menuIndicator:{ position: 'absolute', left: 0, top: '20%', width: 3, height: '60%', backgroundColor: colors.primary, borderRadius: 2 },
+
+  // Right content area
+  content:      { flex: 1 },
+
+  loader: { marginTop: 40, alignSelf: 'center' },
 
   // Section headers
   sectionTitle:  { fontSize: 16, fontWeight: '800', color: '#1A1A1A', marginBottom: 12, marginTop: 4 },
