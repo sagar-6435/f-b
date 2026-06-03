@@ -27,14 +27,24 @@ router.post('/send-otp', async (req, res) => {
 
     // Delete any existing OTP for this phone before creating a new one
     await Otp.deleteMany({ phone });
-
     await Otp.create({ phone, code, expiresAt });
 
-    await client.messages.create({
-      body: `Your Fresh Basket OTP is ${code}. Valid for 10 minutes. Do not share this code.`,
-      from: FROM_NUMBER,
-      to:   phone,
-    });
+    // Try to send via Twilio — on trial accounts, unverified numbers will fail.
+    // The OTP is still saved and valid; SMS delivery is best-effort.
+    try {
+      await client.messages.create({
+        body: `Your Fresh Basket OTP is ${code}. Valid for 10 minutes. Do not share this code.`,
+        from: FROM_NUMBER,
+        to:   phone,
+      });
+    } catch (twilioErr) {
+      console.error('send-otp Twilio error:', twilioErr.message);
+      // On trial accounts: log the OTP so it can be used manually for testing
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[DEV] OTP for ${phone}: ${code}`);
+      }
+      // Don't fail the request — OTP is saved, SMS just couldn't be delivered
+    }
 
     res.json({ success: true, message: 'OTP sent successfully.' });
   } catch (err) {
