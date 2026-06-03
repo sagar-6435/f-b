@@ -2,6 +2,7 @@
   "expo": {
     "name": "Fresh Basket",
     "slug": "fresh-basket-expo",
+    "owner": "sagar-889",
     "version": "1.0.0",
     "sdkVersion": "54.0.0",
     "icon": "./icon.png",
@@ -10,15 +11,36 @@
       "resizeMode": "contain",
       "backgroundColor": "#FFF8F4"
     },
-    "plugins": ["expo-notifications", "@react-native-firebase/app", "@react-native-firebase/auth"],
+    "plugins": [
+      "expo-notifications",
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "gradleVersion": "8.10.2"
+          }
+        }
+      ]
+    ],
     "android": {
       "package": "com.webgenixx.FreshBasket",
-      "googleServicesFile": "./server/google-services.json",
-      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION", "POST_NOTIFICATIONS"]
+      "googleServicesFile": "./android/app/google-services.json",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "POST_NOTIFICATIONS"
+      ]
     },
     "ios": {
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Fresh Basket uses your location to show delivery coverage and nearby service availability."
+      }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "7ab6b01a-8803-4365-a807-1b99f2396b2b"
       }
     }
   }
