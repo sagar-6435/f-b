@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: freshbasket-api
+    runtime: node
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: MONGODB_URI
+        sync: false          # set manually in Render dashboard — never commit real URI
+      - key: TWILIO_ACCOUNT_SID
+        sync: false          # set manually in Render dashboard
+      - key: TWILIO_AUTH_TOKEN
+        sync: false          # set manually in Render dashboard
+      - key: TWILIO_PHONE_NUMBER
+        sync: false          # set manually in Render dashboard
