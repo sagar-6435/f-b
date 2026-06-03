@@ -42,6 +42,12 @@ const userSchema = new mongoose.Schema(
       longitude: { type: Number, default: null },
       updatedAt: { type: Date,   default: null },
     },
+    // Customer's saved delivery location (GPS coords + address text)
+    savedLocation: {
+      latitude:  { type: Number, default: null },
+      longitude: { type: Number, default: null },
+      address:   { type: String, default: '' },
+    },
     cartItems:            { type: [cartItemSchema], default: [] },
     orders:               { type: [orderSchema],   default: [] },
   },

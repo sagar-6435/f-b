@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, Image, TouchableOpacity,
-  ScrollView, ActivityIndicator, Alert,
+  ScrollView, ActivityIndicator, Alert, TextInput, Modal,
 } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,12 +13,156 @@ import {
   addToCart, clearCart,
 } from '../backend/freshBasketBackend';
 
+// ── Delivery address selector modal ──────────────────────────────────────────
+
+function DeliveryLocationModal({ visible, savedAddress, onConfirm, onClose }) {
+  const [mode,        setMode]        = useState('saved'); // 'saved' | 'current' | 'custom'
+  const [customText,  setCustomText]  = useState('');
+  const [locLoading,  setLocLoading]  = useState(false);
+  const [currentLoc,  setCurrentLoc]  = useState(null); // { latitude, longitude, address }
+
+  const handleUseCurrent = async () => {
+    setLocLoading(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission denied', 'Enable location to use current location.');
+        return;
+      }
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const [place] = await Location.reverseGeocodeAsync({
+        latitude: pos.coords.latitude, longitude: pos.coords.longitude,
+      });
+      const addr = [place?.street ?? place?.name, place?.city ?? place?.district, place?.region]
+        .filter(Boolean).join(', ');
+      setCurrentLoc({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, address: addr });
+      setMode('current');
+    } catch {
+      Alert.alert('Error', 'Unable to get current location.');
+    } finally {
+      setLocLoading(false);
+    }
+  };
+
+  const handleConfirm = () => {
+    if (mode === 'saved') {
+      onConfirm({
+        address:   savedAddress?.address ?? '',
+        latitude:  savedAddress?.latitude  ?? null,
+        longitude: savedAddress?.longitude ?? null,
+      });
+    } else if (mode === 'current' && currentLoc) {
+      onConfirm(currentLoc);
+    } else if (mode === 'custom') {
+      if (!customText.trim()) { Alert.alert('Required', 'Enter a delivery address.'); return; }
+      onConfirm({ address: customText.trim(), latitude: null, longitude: null });
+    }
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={ms.overlay}>
+        <View style={ms.card}>
+          <View style={ms.headerRow}>
+            <Text style={ms.title}>Delivery address</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Ionicons name="close" size={22} color="#888" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Option 1 — saved address */}
+          {savedAddress?.address ? (
+            <TouchableOpacity style={[ms.option, mode === 'saved' && ms.optionActive]} onPress={() => setMode('saved')}>
+              <Ionicons name="home-outline" size={20} color={mode === 'saved' ? colors.primary : '#888'} />
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={ms.optionLabel}>Saved address</Text>
+                <Text style={ms.optionValue} numberOfLines={2}>{savedAddress.address}</Text>
+              </View>
+              {mode === 'saved' && <Ionicons name="checkmark-circle" size={20} color={colors.primary} />}
+            </TouchableOpacity>
+          ) : null}
+
+          {/* Option 2 — current location */}
+          <TouchableOpacity style={[ms.option, mode === 'current' && ms.optionActive]} onPress={handleUseCurrent} disabled={locLoading}>
+            {locLoading
+              ? <ActivityIndicator color={colors.primary} size="small" />
+              : <Ionicons name="location-outline" size={20} color={mode === 'current' ? colors.primary : '#888'} />}
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={ms.optionLabel}>Current location</Text>
+              <Text style={ms.optionValue} numberOfLines={2}>
+                {currentLoc ? currentLoc.address : 'Tap to detect'}
+              </Text>
+            </View>
+            {mode === 'current' && <Ionicons name="checkmark-circle" size={20} color={colors.primary} />}
+          </TouchableOpacity>
+
+          {/* Option 3 — custom address */}
+          <TouchableOpacity style={[ms.option, mode === 'custom' && ms.optionActive]} onPress={() => setMode('custom')}>
+            <Ionicons name="pencil-outline" size={20} color={mode === 'custom' ? colors.primary : '#888'} />
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={ms.optionLabel}>Different address</Text>
+              {mode === 'custom'
+                ? <TextInput
+                    style={ms.customInput}
+                    placeholder="Enter full delivery address"
+                    value={customText}
+                    onChangeText={setCustomText}
+                    multiline
+                    autoFocus
+                  />
+                : <Text style={ms.optionValue}>Enter a different address</Text>}
+            </View>
+            {mode === 'custom' && <Ionicons name="checkmark-circle" size={20} color={colors.primary} />}
+          </TouchableOpacity>
+
+          <TouchableOpacity style={ms.confirmBtn} onPress={handleConfirm}>
+            <Text style={ms.confirmBtnText}>Deliver here</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const ms = StyleSheet.create({
+  overlay:       { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  card:          { backgroundColor: '#fff', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24 },
+  headerRow:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  title:         { fontSize: 18, fontWeight: '800', color: '#1A1A1A' },
+  option:        { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#F7F3F1', borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1.5, borderColor: 'transparent' },
+  optionActive:  { borderColor: colors.primary, backgroundColor: '#FFF5F0' },
+  optionLabel:   { fontSize: 11, fontWeight: '700', color: colors.muted, textTransform: 'uppercase', letterSpacing: 0.5 },
+  optionValue:   { fontSize: 13, color: '#333', marginTop: 2 },
+  customInput:   { fontSize: 13, color: '#333', marginTop: 4, borderBottomWidth: 1, borderBottomColor: colors.primary, paddingVertical: 4 },
+  confirmBtn:    { backgroundColor: colors.primary, paddingVertical: 14, borderRadius: 28, alignItems: 'center', marginTop: 8 },
+  confirmBtnText:{ color: '#fff', fontWeight: '700', fontSize: 16 },
+});
+
 export default function CartScreen({ navigation }) {
   const { phoneNumber, userProfile } = useAuth();
-  const [items, setItems]           = useState([]);
-  const [loading, setLoading]       = useState(true);
-  const [checkingOut, setCheckingOut] = useState(false);
+  const [items, setItems]               = useState([]);
+  const [loading, setLoading]           = useState(true);
+  const [checkingOut, setCheckingOut]   = useState(false);
+  const [showLocModal, setShowLocModal] = useState(false);
+
+  // Selected delivery location — defaults to saved profile location
+  const [deliveryLocation, setDeliveryLocation] = useState(null);
+
   const userId = phoneNumber ? phoneNumber.replace(/\D/g, '') : null;
+
+  // Build saved address from profile
+  const savedAddress = {
+    address:   userProfile?.address ?? (userProfile?.addressLine ? `${userProfile.addressLine}, ${userProfile.city}` : ''),
+    latitude:  userProfile?.savedLocation?.latitude  ?? null,
+    longitude: userProfile?.savedLocation?.longitude ?? null,
+  };
+
+  // Auto-select saved address when profile loads
+  useEffect(() => {
+    if (savedAddress.address && !deliveryLocation) {
+      setDeliveryLocation(savedAddress);
+    }
+  }, [userProfile]);
 
   const loadCart = useCallback(async () => {
     setLoading(true);
@@ -52,11 +196,7 @@ export default function CartScreen({ navigation }) {
   };
 
   const handleDecrement = async (item) => {
-    if (item.quantity <= 1) {
-      handleRemove(item.productId);
-      return;
-    }
-    // Remove and re-add with quantity - 1
+    if (item.quantity <= 1) { handleRemove(item.productId); return; }
     await removeFromCart(userId, item.productId);
     await addToCart(userId, {
       id: item.productId, title: item.title,
@@ -70,42 +210,24 @@ export default function CartScreen({ navigation }) {
   };
 
   const handleCheckout = async () => {
-    if (!userProfile?.address && !userProfile?.addressLine) {
-      Alert.alert(
-        'Address required',
-        'Please add a delivery address in your profile before placing an order.',
-        [
-          { text: 'Go to Profile', onPress: () => navigation.navigate('Profile') },
-          { text: 'Cancel', style: 'cancel' },
-        ],
-      );
+    if (!deliveryLocation?.address) {
+      Alert.alert('Address required', 'Please select a delivery address before placing your order.');
+      setShowLocModal(true);
       return;
     }
 
     setCheckingOut(true);
     try {
-      // Try to get current location for delivery partner matching
-      let customerLocation = null;
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === 'granted') {
-          const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-          customerLocation = {
-            latitude:  pos.coords.latitude,
-            longitude: pos.coords.longitude,
-            address:   userProfile?.address ?? '',
-          };
-        }
-      } catch {
-        // Location is optional — proceed without it
-      }
-
+      const customerLocation = {
+        latitude:  deliveryLocation.latitude  ?? null,
+        longitude: deliveryLocation.longitude ?? null,
+        address:   deliveryLocation.address,
+      };
       const order = await placeOrder(userId, customerLocation);
       setItems([]);
-
       Alert.alert(
         '🎉 Order Placed!',
-        `Order #${String(order._id).slice(-6).toUpperCase()} has been placed.\nA delivery partner near you will be notified.`,
+        `Order #${String(order._id).slice(-6).toUpperCase()} has been placed.\nDelivering to: ${deliveryLocation.address}`,
         [{ text: 'View Orders', onPress: () => navigation.navigate('Orders') }],
       );
     } catch (error) {
@@ -115,8 +237,17 @@ export default function CartScreen({ navigation }) {
     }
   };
 
+  const displayAddress = deliveryLocation?.address || savedAddress.address || '';
+
   return (
     <ScreenContainer backgroundColor={colors.background}>
+      <DeliveryLocationModal
+        visible={showLocModal}
+        savedAddress={savedAddress}
+        onConfirm={(loc) => { setDeliveryLocation(loc); setShowLocModal(false); }}
+        onClose={() => setShowLocModal(false)}
+      />
+
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
         <Text style={styles.title}>Your Cart</Text>
 
@@ -139,7 +270,6 @@ export default function CartScreen({ navigation }) {
                 <View style={styles.itemInfo}>
                   <Text style={styles.itemTitle} numberOfLines={2}>{item.title}</Text>
                   <Text style={styles.itemPrice}>₹{item.price} each</Text>
-                  {/* Quantity controls */}
                   <View style={styles.qtyRow}>
                     <TouchableOpacity style={styles.qtyBtn} onPress={() => handleDecrement(item)}>
                       <Ionicons name="remove" size={16} color={colors.primary} />
@@ -159,21 +289,17 @@ export default function CartScreen({ navigation }) {
               </View>
             ))}
 
-            {/* Delivery address preview */}
-            <View style={styles.addressCard}>
+            {/* Delivery address card */}
+            <TouchableOpacity style={styles.addressCard} onPress={() => setShowLocModal(true)}>
               <Ionicons name="location-outline" size={18} color={colors.primary} />
               <View style={{ flex: 1, marginLeft: 8 }}>
                 <Text style={styles.addressLabel}>Delivering to</Text>
                 <Text style={styles.addressText} numberOfLines={2}>
-                  {userProfile?.address || userProfile?.addressLine
-                    ? (userProfile.address || `${userProfile.addressLine}, ${userProfile.city}`)
-                    : 'No address set — tap to add'}
+                  {displayAddress || 'Tap to set delivery address'}
                 </Text>
               </View>
-              <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
-                <Text style={styles.changeText}>Change</Text>
-              </TouchableOpacity>
-            </View>
+              <Text style={styles.changeText}>Change</Text>
+            </TouchableOpacity>
 
             {/* Summary */}
             <View style={styles.summary}>
@@ -199,7 +325,7 @@ export default function CartScreen({ navigation }) {
               {checkingOut
                 ? <ActivityIndicator color="#fff" />
                 : <Text style={styles.checkoutText}>Place Order  ₹{total}</Text>}
-            </TouchableOpacity>
+          </TouchableOpacity>
           </>
         )}
       </ScrollView>

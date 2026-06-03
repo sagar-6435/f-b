@@ -9,7 +9,7 @@ import { colors } from '../theme';
 import {
   fetchUsersByRole, createUser, updateUser, deleteUser,
   fetchAllOrders, fetchStock, createProductWithStock,
-  sendNotificationToUser,
+  sendNotificationToUser, broadcastNotification,
 } from '../backend/freshBasketBackend';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -460,7 +460,7 @@ function UserRow({ user, role, onDelete, onViewOrders }) {
 // Main screen
 // ─────────────────────────────────────────────────────────────────────────────
 
-const TABS = ['Overview', 'Delivery', 'Suppliers', 'Stock'];
+const TABS = ['Overview', 'Delivery', 'Suppliers', 'Stock', 'Notify'];
 
 export default function AdminDashboardScreen({ navigation }) {
   const [activeTab,    setActiveTab]    = useState('Overview');
@@ -488,6 +488,13 @@ export default function AdminDashboardScreen({ navigation }) {
 
   // Notifications
   const [notifyOrder,  setNotifyOrder]  = useState(null);
+
+  // Broadcast
+  const [bcTitle,      setBcTitle]      = useState('');
+  const [bcBody,       setBcBody]       = useState('');
+  const [bcRole,       setBcRole]       = useState('customer');
+  const [bcSending,    setBcSending]    = useState(false);
+  const [bcHistory,    setBcHistory]    = useState([]);
 
   // ── Loaders ──────────────────────────────────────────────────────────────
 
@@ -799,6 +806,140 @@ export default function AdminDashboardScreen({ navigation }) {
             )}
           </>
         )}
+
+        {/* ════ NOTIFY ════ */}
+        {activeTab === 'Notify' && (
+          <>
+            <Text style={styles.sectionTitle}>Broadcast Notification</Text>
+            <Text style={styles.notifyHint}>
+              Send a push notification to all users. Use this for offers, new arrivals, events, or announcements.
+            </Text>
+
+            {/* Audience selector */}
+            <Text style={styles.inputLabel}>Audience</Text>
+            <View style={styles.audienceRow}>
+              {[
+                { key: 'customer',  label: '🛒 Customers' },
+                { key: 'delivery',  label: '🚴 Delivery' },
+                { key: 'supplier',  label: '🏭 Suppliers' },
+              ].map((a) => (
+                <TouchableOpacity
+                  key={a.key}
+                  style={[styles.audienceChip, bcRole === a.key && styles.audienceChipActive]}
+                  onPress={() => setBcRole(a.key)}
+                >
+                  <Text style={[styles.audienceChipText, bcRole === a.key && styles.audienceChipTextActive]}>
+                    {a.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Quick templates */}
+            <Text style={styles.inputLabel}>Quick templates</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 4 }}>
+              {[
+                { label: '🎉 New Arrival',  title: '🎉 New Product Alert!',      body: 'We just added fresh new items to our catalog. Check them out now!' },
+                { label: '💰 Offer',        title: '💰 Special Offer Today!',    body: 'Enjoy exclusive discounts on selected items. Limited time only!' },
+                { label: '📅 Event',        title: '📅 Upcoming Event',          body: 'We have an exciting event coming up. Stay tuned for more details!' },
+                { label: '🚀 Flash Sale',   title: '🚀 Flash Sale — Hurry!',     body: 'Flash sale is live for the next 2 hours. Grab your favourites now!' },
+                { label: '🙏 Thank You',    title: '🙏 Thank You!',              body: 'Thank you for being a valued Fresh Basket customer. We appreciate you!' },
+              ].map((t) => (
+                <TouchableOpacity
+                  key={t.label}
+                  style={styles.presetChip}
+                  onPress={() => { setBcTitle(t.title); setBcBody(t.body); }}
+                >
+                  <Text style={styles.presetChipText}>{t.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            {/* Compose */}
+            <Text style={styles.inputLabel}>Title *</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. 🎉 Weekend Offer!"
+              value={bcTitle}
+              onChangeText={setBcTitle}
+            />
+
+            <Text style={styles.inputLabel}>Message *</Text>
+            <TextInput
+              style={[styles.input, { height: 96, textAlignVertical: 'top', marginBottom: 4 }]}
+              placeholder="Write your message here…"
+              value={bcBody}
+              onChangeText={setBcBody}
+              multiline
+            />
+
+            <TouchableOpacity
+              style={[styles.broadcastBtn, bcSending && { opacity: 0.6 }]}
+              disabled={bcSending}
+              onPress={async () => {
+                if (!bcTitle.trim() || !bcBody.trim()) {
+                  Alert.alert('Required', 'Title and message cannot be empty.'); return;
+                }
+                Alert.alert(
+                  'Send to all?',
+                  `This will send "${bcTitle}" to all ${bcRole}s. Continue?`,
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Send',
+                      onPress: async () => {
+                        setBcSending(true);
+                        try {
+                          const result = await broadcastNotification(bcTitle.trim(), bcBody.trim(), bcRole);
+                          const entry = {
+                            id:   Date.now(),
+                            title: bcTitle.trim(),
+                            body:  bcBody.trim(),
+                            role:  bcRole,
+                            sent:  result.sent ?? 0,
+                            time:  new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+                          };
+                          setBcHistory((prev) => [entry, ...prev].slice(0, 20));
+                          Alert.alert('✅ Sent!', `Delivered to ${result.sent} user(s). ${result.failed > 0 ? `${result.failed} failed.` : ''}`);
+                          setBcTitle('');
+                          setBcBody('');
+                        } catch (err) {
+                          Alert.alert('Failed', err.message);
+                        } finally {
+                          setBcSending(false);
+                        }
+                      },
+                    },
+                  ],
+                );
+              }}
+            >
+              {bcSending
+                ? <ActivityIndicator color="#fff" />
+                : <>
+                    <Ionicons name="send" size={16} color="#fff" style={{ marginRight: 8 }} />
+                    <Text style={styles.broadcastBtnText}>Send to all {bcRole}s</Text>
+                  </>}
+            </TouchableOpacity>
+
+            {/* History */}
+            {bcHistory.length > 0 && (
+              <>
+                <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Sent history</Text>
+                {bcHistory.map((h) => (
+                  <View key={h.id} style={styles.historyRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.historyTitle}>{h.title}</Text>
+                      <Text style={styles.historyBody} numberOfLines={1}>{h.body}</Text>
+                      <Text style={styles.historyMeta}>{h.role} · {h.time} · {h.sent} sent</Text>
+                    </View>
+                    <Ionicons name="checkmark-circle" size={20} color="#2E7D32" />
+                  </View>
+                ))}
+              </>
+            )}
+          </>
+        )}
       </ScrollView>
     </ScreenContainer>
   );
@@ -899,4 +1040,18 @@ const styles = StyleSheet.create({
   // Notification preset chips
   presetChip:     { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#FFF1E8', marginRight: 8 },
   presetChipText: { color: colors.primary, fontWeight: '600', fontSize: 12 },
+
+  // Broadcast / Notify tab
+  notifyHint:       { color: '#888', fontSize: 13, lineHeight: 18, marginBottom: 16 },
+  audienceRow:      { flexDirection: 'row', gap: 8, marginBottom: 4 },
+  audienceChip:     { flex: 1, paddingVertical: 10, borderRadius: 20, backgroundColor: '#F0F0F0', alignItems: 'center' },
+  audienceChipActive:   { backgroundColor: colors.primary },
+  audienceChipText:     { fontWeight: '700', color: '#888', fontSize: 13 },
+  audienceChipTextActive: { color: '#fff' },
+  broadcastBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, paddingVertical: 15, borderRadius: 28, marginTop: 16 },
+  broadcastBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  historyRow:       { backgroundColor: '#fff', borderRadius: 14, padding: 14, marginBottom: 8, flexDirection: 'row', alignItems: 'center', elevation: 1 },
+  historyTitle:     { fontWeight: '700', color: '#1A1A1A', fontSize: 14 },
+  historyBody:      { color: '#666', fontSize: 12, marginTop: 2 },
+  historyMeta:      { color: '#AAA', fontSize: 11, marginTop: 4 },
 });

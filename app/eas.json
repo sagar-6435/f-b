@@ -17,7 +17,8 @@
     "preview": {
       "distribution": "internal",
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "artifactPath": "android/app/build/outputs/apk/release/Fresh-basket.apk"
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://f-b-r0iq.onrender.com"

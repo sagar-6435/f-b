@@ -153,3 +153,8 @@ export async function createProductWithStock({ title, price, description, tag, u
 export async function sendNotificationToUser(userId, title, body) {
   return api.post('/notifications/send', { userId, title, body });
 }
+
+/** Admin: broadcast a push notification to all users of a given role */
+export async function broadcastNotification(title, body, role = 'customer') {
+  return api.post('/notifications/broadcast', { title, body, role });
+}

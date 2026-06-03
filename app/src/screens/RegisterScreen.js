@@ -3,6 +3,8 @@ import {
   View, Text, StyleSheet, TextInput,
   TouchableOpacity, Alert, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform,
 } from 'react-native';
+import * as Location from 'expo-location';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme';
 import { useAuth } from '../auth/AuthContext';
 
@@ -15,6 +17,37 @@ export default function RegisterScreen({ navigation, route }) {
   const [city, setCity]               = useState('');
   const [pincode, setPincode]         = useState('');
   const [loading, setLoading]         = useState(false);
+  const [locLoading, setLocLoading]   = useState(false);
+  const [locCaptured, setLocCaptured] = useState(false);
+  const [coords, setCoords]           = useState(null); // { latitude, longitude }
+
+  // Capture GPS and reverse-geocode to fill address fields
+  const handleCaptureLocation = async () => {
+    setLocLoading(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission denied', 'Enable location access to auto-fill your address.');
+        return;
+      }
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      setCoords({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+
+      const [place] = await Location.reverseGeocodeAsync({
+        latitude: pos.coords.latitude, longitude: pos.coords.longitude,
+      });
+      if (place) {
+        if (place.street || place.name)  setAddressLine(place.street ?? place.name ?? '');
+        if (place.city || place.district) setCity(place.city ?? place.district ?? '');
+        if (place.postalCode)             setPincode(place.postalCode.replace(/\D/g, '').slice(0, 6));
+      }
+      setLocCaptured(true);
+    } catch {
+      Alert.alert('Error', 'Could not get location. Please fill in the address manually.');
+    } finally {
+      setLocLoading(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!displayName.trim()) {
@@ -35,12 +68,20 @@ export default function RegisterScreen({ navigation, route }) {
     setLoading(true);
     try {
       await updateProfile({
-        displayName: displayName.trim(),
+        displayName:   displayName.trim(),
         address,
-        addressLine: addressLine.trim(),
-        city:        city.trim(),
-        pincode:     pincode.trim(),
-        role: 'customer',
+        addressLine:   addressLine.trim(),
+        city:          city.trim(),
+        pincode:       pincode.trim(),
+        role:          'customer',
+        // Store GPS coords so checkout can use them without re-prompting
+        ...(coords ? {
+          savedLocation: {
+            latitude:  coords.latitude,
+            longitude: coords.longitude,
+            address,
+          },
+        } : {}),
       });
       navigation.replace('MainTabs');
     } catch (error) {
@@ -55,17 +96,12 @@ export default function RegisterScreen({ navigation, route }) {
       style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView
-        contentContainerStyle={styles.container}
-        keyboardShouldPersistTaps="handled"
-      >
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.emoji}>👋</Text>
           <Text style={styles.title}>Welcome to Fresh Basket</Text>
-          <Text style={styles.sub}>
-            Just a few details and you're all set.
-          </Text>
+          <Text style={styles.sub}>Just a few details and you're all set.</Text>
           <View style={styles.phoneBadge}>
             <Text style={styles.phoneText}>{phoneNumber}</Text>
           </View>
@@ -73,7 +109,6 @@ export default function RegisterScreen({ navigation, route }) {
 
         {/* Form */}
         <View style={styles.card}>
-          {/* Name */}
           <Text style={styles.label}>Full Name</Text>
           <TextInput
             style={styles.input}
@@ -84,7 +119,20 @@ export default function RegisterScreen({ navigation, route }) {
             returnKeyType="next"
           />
 
-          {/* Address */}
+          {/* Location capture button */}
+          <TouchableOpacity
+            style={[styles.locBtn, locCaptured && styles.locBtnDone]}
+            onPress={handleCaptureLocation}
+            disabled={locLoading}
+          >
+            {locLoading
+              ? <ActivityIndicator color="#fff" size="small" />
+              : <Ionicons name={locCaptured ? 'checkmark-circle' : 'location'} size={18} color="#fff" />}
+            <Text style={styles.locBtnText}>
+              {locLoading ? 'Getting location…' : locCaptured ? 'Location captured ✓' : 'Use my current location'}
+            </Text>
+          </TouchableOpacity>
+
           <Text style={[styles.label, styles.sectionLabel]}>Delivery Address</Text>
 
           <Text style={styles.sublabel}>House / Flat / Street</Text>
@@ -157,6 +205,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#EFE7E4',
   },
+
+  locBtn:           { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primary, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 24, marginTop: 16, gap: 8 },
+  locBtnDone:       { backgroundColor: '#2E7D32' },
+  locBtnText:       { color: '#fff', fontWeight: '700', fontSize: 14 },
 
   saveButton:       { marginTop: 28, backgroundColor: colors.primary, padding: 15, borderRadius: 28, alignItems: 'center' },
   saveButtonDisabled: { opacity: 0.6 },
