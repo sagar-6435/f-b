@@ -39,6 +39,11 @@ mongoose
   .connect(MONGODB_URI)
   .then(() => {
     console.log('✅  Connected to MongoDB Atlas');
+
+    // Eagerly initialize Firebase Admin so we can confirm it in startup logs
+    const { getAdmin } = require('./firebase');
+    getAdmin();
+
     app.listen(PORT, () => {
       console.log(`🚀  FreshBasket API running on http://localhost:${PORT}`);
     });
