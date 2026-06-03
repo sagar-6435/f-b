@@ -11,7 +11,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://13.53.175.80:3000"
+        "EXPO_PUBLIC_API_URL": "https://f-b-r0iq.onrender.com"
       }
     },
     "preview": {
@@ -20,7 +20,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://13.53.175.80:3000"
+        "EXPO_PUBLIC_API_URL": "https://f-b-r0iq.onrender.com"
       }
     },
     "production": {
@@ -28,7 +28,7 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://13.53.175.80:3000"
+        "EXPO_PUBLIC_API_URL": "https://f-b-r0iq.onrender.com"
       }
     }
   },
