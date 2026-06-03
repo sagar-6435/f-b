@@ -9,7 +9,7 @@ import Constants from 'expo-constants';
 export const API_BASE_URL =
   Constants.expoConfig?.extra?.apiUrl ??
   process.env.EXPO_PUBLIC_API_URL ??
-  'http://13.53.175.80:3000';
+  'https://f-b-r0iq.onrender.com';
 
 async function request(method, path, body) {
   const options = {
