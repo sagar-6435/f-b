@@ -147,5 +147,9 @@ export async function createProductWithStock({ title, price, description, tag, u
   return product;
 }
 
-// Keep legacy export
-export const SEED_PRODUCTS = [];
+// ── Notifications ─────────────────────────────────────────────────────────────
+
+/** Admin: send a manual push notification to a user */
+export async function sendNotificationToUser(userId, title, body) {
+  return api.post('/notifications/send', { userId, title, body });
+}

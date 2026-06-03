@@ -9,6 +9,7 @@ import { colors } from '../theme';
 import {
   fetchUsersByRole, createUser, updateUser, deleteUser,
   fetchAllOrders, fetchStock, createProductWithStock,
+  sendNotificationToUser,
 } from '../backend/freshBasketBackend';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -29,6 +30,110 @@ const STATUS_COLOR = {
 function fmt(dateStr) {
   if (!dateStr) return '—';
   return new Date(dateStr).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Send notification modal (admin → customer)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const QUICK_MESSAGES = [
+  { label: '🚴 Out for Delivery', title: '🚴 Out for Delivery!',  body: 'Your order is on the way. Stay ready!' },
+  { label: '✅ Delivered',        title: '✅ Order Delivered!',   body: 'Your order has been delivered. Enjoy!' },
+  { label: '👍 Confirmed',        title: '👍 Order Confirmed',    body: 'Your order has been confirmed and is being prepared.' },
+  { label: '⏳ Delay',            title: '⏳ Slight Delay',       body: 'Your order is running a little late. We apologise for the inconvenience.' },
+];
+
+function SendNotificationModal({ visible, order, onClose }) {
+  const [title,   setTitle]   = useState('');
+  const [body,    setBody]    = useState('');
+  const [sending, setSending] = useState(false);
+
+  const fill = (preset) => { setTitle(preset.title); setBody(preset.body); };
+  const reset = () => { setTitle(''); setBody(''); };
+
+  const handleSend = async () => {
+    if (!title.trim() || !body.trim()) {
+      Alert.alert('Required', 'Title and message cannot be empty.');
+      return;
+    }
+    setSending(true);
+    try {
+      await sendNotificationToUser(order.customerId, title.trim(), body.trim());
+      Alert.alert('Sent ✓', `Notification sent to ${order.customerName || 'customer'}.`);
+      reset();
+      onClose();
+    } catch (err) {
+      Alert.alert('Failed', err.message);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={() => { reset(); onClose(); }}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalCard}>
+          <View style={styles.modalHeaderRow}>
+            <View>
+              <Text style={styles.modalTitle}>Send Notification</Text>
+              <Text style={styles.modalSubtitle}>
+                To: {order?.customerName || '—'} · #{String(order?._id ?? '').slice(-6).toUpperCase()}
+              </Text>
+            </View>
+            <TouchableOpacity onPress={() => { reset(); onClose(); }}>
+              <Ionicons name="close" size={22} color="#888" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Quick presets */}
+          <Text style={styles.inputLabel}>Quick messages</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+            {QUICK_MESSAGES.map((q) => (
+              <TouchableOpacity
+                key={q.label}
+                style={styles.presetChip}
+                onPress={() => fill(q)}
+              >
+                <Text style={styles.presetChipText}>{q.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          <Text style={styles.inputLabel}>Title</Text>
+          <TextInput
+            style={styles.input}
+            value={title}
+            onChangeText={setTitle}
+            placeholder="Notification title"
+          />
+
+          <Text style={styles.inputLabel}>Message</Text>
+          <TextInput
+            style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+            value={body}
+            onChangeText={setBody}
+            placeholder="Notification body"
+            multiline
+          />
+
+          <View style={styles.modalBtns}>
+            <TouchableOpacity style={styles.cancelBtn} onPress={() => { reset(); onClose(); }}>
+              <Text style={styles.cancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.saveBtn, sending && { opacity: 0.6 }]}
+              onPress={handleSend}
+              disabled={sending}
+            >
+              {sending
+                ? <ActivityIndicator color="#fff" size="small" />
+                : <Text style={styles.saveBtnText}>Send</Text>}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -381,6 +486,9 @@ export default function AdminDashboardScreen({ navigation }) {
   const [stockLoading, setStockLoading] = useState(false);
   const [showAddStock, setShowAddStock] = useState(false);
 
+  // Notifications
+  const [notifyOrder,  setNotifyOrder]  = useState(null);
+
   // ── Loaders ──────────────────────────────────────────────────────────────
 
   const loadOverview = useCallback(async () => {
@@ -495,6 +603,13 @@ export default function AdminDashboardScreen({ navigation }) {
         onSaved={() => { setShowAddStock(false); loadStock(); }}
       />
 
+      {/* Send notification modal */}
+      <SendNotificationModal
+        visible={!!notifyOrder}
+        order={notifyOrder ?? {}}
+        onClose={() => setNotifyOrder(null)}
+      />
+
       {/* ── Header ── */}
       <View style={styles.header}>
         <View>
@@ -555,6 +670,12 @@ export default function AdminDashboardScreen({ navigation }) {
                     <Text style={styles.orderRowMeta}>{o.customerName || '—'} · ₹{o.totalAmount}</Text>
                     <Text style={styles.orderRowDate}>{fmt(o.createdAt)}</Text>
                   </View>
+                  <TouchableOpacity
+                    style={styles.notifyBtn}
+                    onPress={() => setNotifyOrder(o)}
+                  >
+                    <Ionicons name="notifications-outline" size={16} color={colors.primary} />
+                  </TouchableOpacity>
                   <View style={[styles.statusBadge, { backgroundColor: STATUS_COLOR[o.status] ?? '#888' }]}>
                     <Text style={styles.statusBadgeText}>{o.status}</Text>
                   </View>
@@ -723,6 +844,7 @@ const styles = StyleSheet.create({
   orderRowDate:  { color: '#AAA', fontSize: 11, marginTop: 2 },
   statusBadge:   { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, marginLeft: 8 },
   statusBadgeText: { color: '#fff', fontWeight: '700', fontSize: 11 },
+  notifyBtn:     { padding: 8, backgroundColor: '#FFF1E8', borderRadius: 20, marginLeft: 6 },
 
   // User rows
   userRow:       { backgroundColor: '#fff', borderRadius: 14, padding: 14, marginBottom: 10, flexDirection: 'row', alignItems: 'center', elevation: 1, gap: 12 },
@@ -773,4 +895,8 @@ const styles = StyleSheet.create({
   unitChipActive:   { backgroundColor: colors.primary },
   unitChipText:     { color: '#888', fontWeight: '600', fontSize: 13 },
   unitChipTextActive: { color: '#fff' },
+
+  // Notification preset chips
+  presetChip:     { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#FFF1E8', marginRight: 8 },
+  presetChipText: { color: colors.primary, fontWeight: '600', fontSize: 12 },
 });

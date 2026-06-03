@@ -1,20 +1,22 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, ImageBackground, Image } from 'react-native';
+import * as Location from 'expo-location';
 import { colors } from '../theme';
 import { useAuth } from '../auth/AuthContext';
 
 export default function SplashScreen({ navigation }) {
   const { isReady, isAuthenticated } = useAuth();
 
+  // Request location permission on app start
   useEffect(() => {
-    if (!isReady) {
-      return undefined;
-    }
+    Location.requestForegroundPermissionsAsync().catch(() => {});
+  }, []);
 
+  useEffect(() => {
+    if (!isReady) return undefined;
     const timer = setTimeout(() => {
       navigation.replace(isAuthenticated ? 'MainTabs' : 'Login');
     }, 2000);
-
     return () => clearTimeout(timer);
   }, [isReady, isAuthenticated, navigation]);
 

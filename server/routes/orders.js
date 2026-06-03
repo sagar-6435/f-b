@@ -2,6 +2,7 @@ const express = require('express');
 const router  = express.Router();
 const Order   = require('../models/Order');
 const User    = require('../models/User');
+const { sendFcmNotification } = require('./notifications');
 
 // ── POST /orders  (place order) ───────────────────────────────────────────────
 router.post('/', async (req, res) => {
@@ -120,6 +121,23 @@ router.patch('/:id/status', async (req, res) => {
 
     const order = await Order.findByIdAndUpdate(req.params.id, update, { new: true });
     if (!order) return res.status(404).json({ error: 'Order not found.' });
+
+    // Auto-send push notification to customer on key status changes
+    const NOTIFY_STATUSES = {
+      Confirmed:      { title: '👍 Order Confirmed',     body: `Your order #${String(order._id).slice(-6).toUpperCase()} has been confirmed and is being prepared.` },
+      OutForDelivery: { title: '🚴 Out for Delivery!',   body: `Your order #${String(order._id).slice(-6).toUpperCase()} is on the way. Stay ready!` },
+      Delivered:      { title: '✅ Order Delivered!',    body: `Your order #${String(order._id).slice(-6).toUpperCase()} has been delivered. Enjoy!` },
+      Cancelled:      { title: '❌ Order Cancelled',     body: `Your order #${String(order._id).slice(-6).toUpperCase()} has been cancelled.` },
+    };
+
+    const msg = NOTIFY_STATUSES[status];
+    if (msg && order.customerId) {
+      User.findById(order.customerId).lean().then((customer) => {
+        if (customer?.fcmToken) {
+          sendFcmNotification(customer.fcmToken, msg.title, msg.body).catch(() => {});
+        }
+      }).catch(() => {});
+    }
 
     res.json(order);
   } catch (err) {

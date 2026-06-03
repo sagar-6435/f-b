@@ -15,11 +15,22 @@ export function AuthProvider({ children }) {
   const [phoneNumber, setPhoneNumber]       = useState(null);
   const [userProfile, setUserProfile]       = useState(null);
 
-  /** Load user profile from backend. Returns null if not found. */
+  /** Load user profile from backend. Returns null only on 404, throws on network error. */
   const loadProfile = async (phone) => {
     try {
       return await api.get(`/users/${normalizePhone(phone)}`);
-    } catch {
+    } catch (err) {
+      // If it's a network error (backend unreachable), don't wipe the session —
+      // let the user in and retry profile sync later.
+      const msg = err?.message ?? '';
+      if (
+        msg.includes('Network request failed') ||
+        msg.includes('fetch') ||
+        msg.includes('timeout')
+      ) {
+        return 'network_error';
+      }
+      // 404 or other server error — profile truly missing
       return null;
     }
   };
@@ -46,18 +57,25 @@ export function AuthProvider({ children }) {
           const parsed = JSON.parse(stored);
           if (parsed?.isAuthenticated && parsed?.phoneNumber) {
             const profile = await loadProfile(parsed.phoneNumber);
-            if (profile) {
+
+            if (profile === 'network_error') {
+              // Backend unreachable (cold start, offline) — trust the stored
+              // session and let the user in without a profile for now.
+              setPhoneNumber(parsed.phoneNumber);
+              setUserProfile(null);
+              setIsAuthenticated(true);
+            } else if (profile) {
               setPhoneNumber(parsed.phoneNumber);
               setUserProfile(profile);
               setIsAuthenticated(true);
             } else {
-              // Profile gone — clear stale session
+              // Server confirmed user doesn't exist — clear stale session
               await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
             }
           }
         }
       } catch {
-        // ignore restore errors
+        // AsyncStorage read error — don't block the app
       } finally {
         setIsReady(true);
       }
@@ -66,9 +84,17 @@ export function AuthProvider({ children }) {
     restore();
   }, []);
 
-  // Sync push token after login
+  // Sync push token after login + retry profile load if it was missing due to network error
   useEffect(() => {
     if (!isReady || !isAuthenticated || !phoneNumber) return;
+
+    // If profile wasn't loaded (network error during restore), retry now
+    if (!userProfile) {
+      loadProfile(phoneNumber).then((profile) => {
+        if (profile && profile !== 'network_error') setUserProfile(profile);
+      }).catch(() => {});
+    }
+
     syncDevicePushToken(normalizePhone(phoneNumber)).catch(() => {});
   }, [isReady, isAuthenticated, phoneNumber]);
 

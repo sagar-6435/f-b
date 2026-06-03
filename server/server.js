@@ -8,6 +8,7 @@ const productsRouter = require('./routes/products');
 const authRouter     = require('./routes/auth');
 const ordersRouter   = require('./routes/orders');
 const stockRouter    = require('./routes/stock');
+const { router: notificationsRouter } = require('./routes/notifications');
 
 const app  = express();
 const PORT = process.env.PORT ?? 3000;
@@ -17,11 +18,12 @@ app.use(cors());
 app.use(express.json());
 
 // ── Routes ────────────────────────────────────────────────────────────────────
-app.use('/users',    usersRouter);
-app.use('/products', productsRouter);
-app.use('/auth',     authRouter);
-app.use('/orders',   ordersRouter);
-app.use('/stock',    stockRouter);
+app.use('/users',         usersRouter);
+app.use('/products',      productsRouter);
+app.use('/auth',          authRouter);
+app.use('/orders',        ordersRouter);
+app.use('/stock',         stockRouter);
+app.use('/notifications', notificationsRouter);
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
