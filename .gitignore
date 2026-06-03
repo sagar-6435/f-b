@@ -1,0 +1,52 @@
+# ── Environment variables ─────────────────────────────────────────────────────
+# Never commit real IPs, secrets, or API keys
+.env
+.env.local
+.env.*.local
+
+# ── Dependencies ──────────────────────────────────────────────────────────────
+node_modules/
+server/node_modules/
+
+# ── Expo ──────────────────────────────────────────────────────────────────────
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# ── Metro bundler cache ───────────────────────────────────────────────────────
+.metro-health-check*
+
+# ── Android ───────────────────────────────────────────────────────────────────
+android/.gradle/
+android/app/build/
+android/build/
+*.keystore
+!android/app/debug.keystore
+
+# ── iOS ───────────────────────────────────────────────────────────────────────
+ios/Pods/
+ios/build/
+ios/DerivedData/
+*.xcworkspace/xcuserdata/
+
+# ── Backend ───────────────────────────────────────────────────────────────────
+server/.env
+server/.env.local
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ── OS / editor artifacts ─────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ── Build / release artifacts ─────────────────────────────────────────────────
+*.apk
+*.aab
+*.ipa
