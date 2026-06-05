@@ -106,6 +106,31 @@ export function AuthProvider({ children }) {
   };
 
   /**
+   * Bypass — skip OTP verification entirely.
+   * Loads the user profile directly and sets auth state.
+   * Used in development / testing builds.
+   */
+  const bypassOtp = async (phone) => {
+    const userId = normalizePhone(phone);
+    let profile  = await loadProfile(phone);
+    if (!profile || profile === 'network_error') {
+      profile = await api.put(`/users/${userId}`, {
+        phoneNumber: phone,
+        displayName: 'Fresh Basket User',
+        role: 'customer',
+      });
+    }
+    setPhoneNumber(phone);
+    setUserProfile(profile);
+    setIsAuthenticated(true);
+    await AsyncStorage.setItem(
+      AUTH_STORAGE_KEY,
+      JSON.stringify({ isAuthenticated: true, phoneNumber: phone }),
+    );
+    return profile;
+  };
+
+  /**
    * Step 2 — verify OTP with backend.
    * On success, persist the session and load the user profile.
    */
@@ -144,7 +169,7 @@ export function AuthProvider({ children }) {
   };
 
   const value = useMemo(
-    () => ({ isReady, isAuthenticated, phoneNumber, userProfile, sendOtp, confirmOtp, signOut, updateProfile }),
+    () => ({ isReady, isAuthenticated, phoneNumber, userProfile, sendOtp, confirmOtp, bypassOtp, signOut, updateProfile }),
     [isReady, isAuthenticated, phoneNumber, userProfile],
   );
 

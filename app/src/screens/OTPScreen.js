@@ -10,7 +10,7 @@ import { useAuth } from '../auth/AuthContext';
 const OTP_LENGTH = 6;
 
 export default function OTPScreen({ navigation, route }) {
-  const { confirmOtp, sendOtp } = useAuth();
+  const { confirmOtp, sendOtp, bypassOtp } = useAuth();
   const { phoneNumber, isNewUser } = route.params;
 
   const [digits, setDigits]     = useState(Array(OTP_LENGTH).fill(''));
@@ -36,24 +36,16 @@ export default function OTPScreen({ navigation, route }) {
   };
 
   const handleVerify = async () => {
-    const code = digits.join('');
-    if (code.length < OTP_LENGTH) {
-      Alert.alert('Incomplete code', `Please enter all ${OTP_LENGTH} digits.`);
-      return;
-    }
-
     setLoading(true);
     try {
-      await confirmOtp(phoneNumber, code);
+      await bypassOtp(phoneNumber);
       if (isNewUser) {
         navigation.replace('Register', { phoneNumber });
       } else {
         navigation.replace('MainTabs');
       }
     } catch (error) {
-      Alert.alert('Verification failed', error.message ?? 'Invalid OTP. Please try again.');
-      setDigits(Array(OTP_LENGTH).fill(''));
-      inputRefs.current[0]?.focus();
+      Alert.alert('Login failed', error.message ?? 'Please try again.');
     } finally {
       setLoading(false);
     }

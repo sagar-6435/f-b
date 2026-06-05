@@ -112,7 +112,7 @@ export default function RegisterScreen({ navigation, route }) {
           <Text style={styles.label}>Full Name</Text>
           <TextInput
             style={styles.input}
-            placeholder="e.g. Sagar Naidu"
+            placeholder="Enter Your Full Name"
             value={displayName}
             onChangeText={setDisplayName}
             autoCapitalize="words"

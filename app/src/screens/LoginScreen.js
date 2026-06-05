@@ -9,7 +9,7 @@ import { useAuth } from '../auth/AuthContext';
 import { checkUserExists } from '../backend/freshBasketBackend';
 
 export default function LoginScreen({ navigation }) {
-  const { sendOtp } = useAuth();
+  const { } = useAuth();
   const [phoneNumber, setPhoneNumber] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -24,14 +24,13 @@ export default function LoginScreen({ navigation }) {
     setLoading(true);
     try {
       const exists = await checkUserExists(fullPhone);
-      await sendOtp(fullPhone);
-
+      // OTP sending skipped — bypass mode
       navigation.navigate('OTP', {
         phoneNumber: fullPhone,
         isNewUser: !exists,
       });
     } catch (error) {
-      Alert.alert('Failed to send OTP', error.message ?? 'Please try again.');
+      Alert.alert('Error', error.message ?? 'Please try again.');
     } finally {
       setLoading(false);
     }
